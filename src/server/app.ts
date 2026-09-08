@@ -124,7 +124,7 @@ app.get('/loxone', async (_req, res) => {
       .sort((a, b) =>
         normalize(a.start).localeCompare(normalize(b.start)),
       );
-
+const nextNachtdienst = upcoming.find((event) => (event.summary || '').toLowerCase().includes('nachtdienst'));
     const next = upcoming[0];
 
     if (!next) {
@@ -143,7 +143,7 @@ app.get('/loxone', async (_req, res) => {
       .replace(/\r/g, '')
       .replace(/\n/g, ' ')
       .replace(/=/g, '-');
-
+const ns = nextNachtdienst ? normalize(nextNachtdienst.start) : '';
     res.type('text/plain').send(
       [
         'NEXT_FOUND=1',
@@ -152,6 +152,9 @@ app.get('/loxone', async (_req, res) => {
         `HOUR=${s.substring(8, 10)}`,
         `MINUTE=${s.substring(10, 12)}`,
         `ACTIVE=${active}`,
+        `NACHTDIENST_FOUND=${nextNachtdienst ? 1 : 0}`,
+`NACHTDIENST_DATE=${ns ? ns.substring(0, 8) : 0}`,
+`NACHTDIENST_HOUR=${ns ? ns.substring(8, 10) : 0}`,
       ].join('\n'),
     );
   } catch (error) {
