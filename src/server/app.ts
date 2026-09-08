@@ -64,7 +64,100 @@ export function buildApp(
   for (const dir of outputDirs) {
     app.use(express.static(dir));
   }
+app.get('/loxone', async (_req, res) => {
+  try {
+    const fs = await import('node:fs/promises');
 
+    let ics = '';
+
+    for (const dir of resolvedOutputDirs) {
+      try {
+        ics = await fs.readFile(path.resolve(dir, 'timetree.ics'), 'utf8');
+        if (ics) break;
+      } catch {
+        // try next output directory
+      }
+    }
+
+    if (!ics) {
+      return res.status(404).send('ERROR=NO_CALENDAR');
+    }
+
+    // Gefaltete ICS-Zeilen zusammenführen
+    ics = ics.replace(/\r?\n[ \t]/g, '');
+
+    const events = ics
+      .split('BEGIN:VEVENT')
+      .slice(1)
+      .map((block) => {
+        const summary =
+          block.match(/\r?\nSUMMARY:(.*)/)?.[1]?.trim() ?? '';
+
+        const start =
+          block.match(/\r?\nDTSTART[^:]*:(\d{8}T?\d{0,6}Z?)/)?.[1] ?? '';
+
+        const end =
+          block.match(/\r?\nDTEND[^:]*:(\d{8}T?\d{0,6}Z?)/)?.[1] ?? '';
+
+        return { summary, start, end };
+      })
+      .filter((event) => event.start);
+
+    const nowVienna = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Vienna',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    })
+      .format(new Date())
+      .replace(/[- :]/g, '');
+
+    const normalize = (value: string) =>
+      value.replace('T', '').replace('Z', '').padEnd(14, '0');
+
+    const upcoming = events
+      .filter((event) => normalize(event.end || event.start) >= nowVienna)
+      .sort((a, b) =>
+        normalize(a.start).localeCompare(normalize(b.start)),
+      );
+
+    const next = upcoming[0];
+
+    if (!next) {
+      return res.type('text/plain').send(
+        'NEXT_FOUND=0\nACTIVE=0',
+      );
+    }
+
+    const s = normalize(next.start);
+    const e = normalize(next.end || next.start);
+
+    const active =
+      nowVienna >= s && nowVienna <= e ? 1 : 0;
+
+    const title = next.summary
+      .replace(/\r/g, '')
+      .replace(/\n/g, ' ')
+      .replace(/=/g, '-');
+
+    res.type('text/plain').send(
+      [
+        'NEXT_FOUND=1',
+        `TITLE=${title}`,
+        `DATE=${s.substring(0, 8)}`,
+        `HOUR=${s.substring(8, 10)}`,
+        `MINUTE=${s.substring(10, 12)}`,
+        `ACTIVE=${active}`,
+      ].join('\n'),
+    );
+  } catch (error) {
+    res.status(500).type('text/plain').send('ERROR=1');
+  }
+});
   app.get('/health', (_req, res) => {
     const payload: HealthPayload = {
       status: state.lastError ? 'degraded' : 'ok',
