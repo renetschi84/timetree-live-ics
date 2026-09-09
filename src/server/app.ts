@@ -70,14 +70,14 @@ app.get('/loxone', async (_req, res) => {
 
     let ics = '';
 
-    for (const dir of resolvedOutputDirs) {
-      try {
-        ics = await fs.readFile(path.resolve(dir, 'timetree.ics'), 'utf8');
-        if (ics) break;
-      } catch {
-        // try next output directory
-      }
-    }
+    for (const job of jobs) {
+  try {
+    ics = await fs.readFile(path.resolve(job.outputPath), 'utf8');
+    if (ics) break;
+  } catch {
+    // try next job
+  }
+}
 
     if (!ics) {
       return res.status(404).send('ERROR=NO_CALENDAR');
