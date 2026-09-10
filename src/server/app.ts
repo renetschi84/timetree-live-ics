@@ -144,6 +144,19 @@ const nextNachtdienst = upcoming.find((event) => (event.summary || '').toLowerCa
       .replace(/\n/g, ' ')
       .replace(/=/g, '-');
 const ns = nextNachtdienst ? normalize(nextNachtdienst.start) : '';
+    const todayY = Number(nowVienna.substring(0, 4));
+const todayM = Number(nowVienna.substring(4, 6));
+const todayD = Number(nowVienna.substring(6, 8));
+
+const yd = new Date(Date.UTC(todayY, todayM - 1, todayD - 1));
+const yesterdayDate =
+  `${yd.getUTCFullYear()}${String(yd.getUTCMonth() + 1).padStart(2, '0')}${String(yd.getUTCDate()).padStart(2, '0')}`;
+
+const nachtdienstYesterday = events.some(
+  (event) =>
+    (event.summary || '').toLowerCase().includes('nachtdienst') &&
+    normalize(event.start).substring(0, 8) === yesterdayDate
+) ? 1 : 0;
     const nachtdienstToday = ns && ns.substring(0, 8) === nowVienna.substring(0, 8) ? 1 : 0;
     res.type('text/plain').send(
       [
@@ -157,6 +170,7 @@ const ns = nextNachtdienst ? normalize(nextNachtdienst.start) : '';
 `NACHTDIENST_DATE=${ns ? ns.substring(0, 8) : 0}`,
 `NACHTDIENST_HOUR=${ns ? ns.substring(8, 10) : 0}`,
         `NACHTDIENST_TODAY=${nachtdienstToday}`,
+        `NACHTDIENST_YESTERDAY=${nachtdienstYesterday}`,
       ].join('\n'),
     );
   } catch (error) {
